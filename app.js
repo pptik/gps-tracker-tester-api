@@ -27,13 +27,25 @@ connectMQ = () => {
 };
 
 
-/*connectMQ().then(mqConnection => {
-	return connectDB();
-}).then(dbConnection =>{
-	
-}).catch(err => {
-	console.log(err);
-}); */
+/** function to get gps tracker test **/
+getGpsTests = (database) => {
+	return new Promise( async(resolve, reject) => {
+		let trackerCollection = database.collection('tb_tracker');
+		try{
+			let query = 				
+			{ $and:
+                [
+                    { AppID: 0 }
+                    {"location.coordinates": {$ne: [0,0] }}
+                ] 
+			};
+		}catch(err){
+			reject(err);
+		}
+	});
+};
+
+
 
 connectDB().then(dbConnection =>{
 	return connectMQ();
