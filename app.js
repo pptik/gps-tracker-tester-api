@@ -1,6 +1,7 @@
 const client = require('mongodb').MongoClient();
 const configs = require('./configs.json');
 let rmq = require('amqplib');
+let database;
 
 /** function to connect to mongodb **/
 connectDB = () => {
@@ -35,10 +36,12 @@ getGpsTests = (database) => {
 			let query = 				
 			{ $and:
                 [
-                    { AppID: 0 }
+                    { AppID: 0 },
                     {"location.coordinates": {$ne: [0,0] }}
                 ] 
 			};
+			let result = await trackerCollection.find(query).toArray();
+			resolve(result)
 		}catch(err){
 			reject(err);
 		}
@@ -47,10 +50,32 @@ getGpsTests = (database) => {
 
 
 
+/** function to broadcast gps test **/
+broadcast = async(connection, db) => {
+	try{
+		let ch = await connection.createChannel();
+		await ch.assertExchange("gps.tester", 'topic', {durable: false});
+		let q = await ch.assertQueue("GPS-TESTER-BROADCASTER", {exclusive: false, messageTtl: 1000});
+		await ch.bindQueue(q.queue, "gps.tester", "GPS-TESTER-BROADCASTER");
+		console.log("starting broadcast via gps.tester.broadcast");
+		setInterval(async function () {
+            let dataGpsTracker = await getGpsTests(db);
+            console.log(dataGpsTracker);
+            let msg = JSON.stringify(dataGpsTracker);
+            await ch.publish("gps.tester", "gps.tester.broadcast", new Buffer(msg));
+        }, 1500);
+	}catch(err){
+		console.log(err);
+	}
+};
+
+
+
 connectDB().then(dbConnection =>{
+	database = dbConnection;
 	return connectMQ();
 }).then(mqConnection =>{
-	
+	broadcast(mqConnection, database);
 }).catch(err => {
 	console.log(err);
 });
